@@ -1,28 +1,30 @@
-// UltraFastIPC.h - 超高性能IPC头文件
+// UltraFastIPC.h - High performance IPC header file
 #pragma once
 #include <windows.h>
 #include <iostream>
 #include <atomic>
 #include <memory>
 #include <chrono>
+#include "PE32.h"
 
-// 共享内存布局 - 这是两个进程的"共同语言"
+
+// Shared memory layout - This is the "common language" between two processes
 struct SharedMemoryLayout {
-    // 控制标志 - 使用原子操作确保线程安全
-    std::atomic<uint32_t> request_flag{ 0 };      // 0=无请求, 1=有新请求, 2=正在处理
-    std::atomic<uint32_t> response_flag{ 0 };     // 0=无响应, 1=有新响应
-    std::atomic<uint32_t> sequence_id{ 0 };       // 序列号，防止重复处理
+    // Control flags - Use atomic operations to ensure thread safety
+    std::atomic<uint32_t> request_flag{ 0 };      // 0=no request, 1=new request, 2=processing
+    std::atomic<uint32_t> response_flag{ 0 };     // 0=no response, 1=new response
+    std::atomic<uint32_t> sequence_id{ 0 };       // Sequence number, to prevent duplicate processing
 
-    // 数据区域 - 预分配避免动态内存分配
-    uint32_t request_size;                      // 请求数据长度
-    uint32_t response_size;                     // 响应数据长度
-    char request_data[4096];                    // 请求数据缓冲区
-    char response_data[4096];                   // 响应数据缓冲区
+    // Data area - Pre-allocated to avoid dynamic memory allocation
+    uint32_t request_size;                      // Length of request data
+    uint32_t response_size;                     // Length of response data
+    char request_data[4096];                    // Request data buffer
+    char response_data[4096];                   // Response data buffer
 
-    // 性能统计 - 用于监控和优化
-    uint64_t last_request_time;                // 最后请求时间（微秒）
-    uint64_t last_response_time;               // 最后响应时间（微秒）
-    uint32_t total_requests;                   // 总请求数
+    // Performance statistics - For monitoring and optimization
+    uint64_t last_request_time;                // Time of last request (microseconds)
+    uint64_t last_response_time;               // Time of last response (microseconds)
+    uint32_t total_requests;                   // Total number of requests
 };
 
 class UltraFastIPCServer {
@@ -32,7 +34,7 @@ private:
     bool isRunning;
     std::string sharedMemoryName;
 
-    // 高精度计时器 - 微秒级精度测量
+    // High precision timer - Microsecond-level precision measurement
     uint64_t GetMicroseconds() {
         LARGE_INTEGER frequency, counter;
         QueryPerformanceFrequency(&frequency);
@@ -46,39 +48,39 @@ public:
     }
 
     bool Initialize() {
-        // 创建共享内存映射 - 这是两个进程的"共享工作台"
+        // Create a shared memory mapping - This is the "common workspace" between two processes
         hMapFile = CreateFileMappingA(
-            INVALID_HANDLE_VALUE,           // 使用系统页面文件
-            NULL,                           // 默认安全属性
-            PAGE_READWRITE,                 // 读写访问
-            0,                              // 高位大小
-            sizeof(SharedMemoryLayout),     // 低位大小
-            sharedMemoryName.c_str()        // 映射对象名称
+            INVALID_HANDLE_VALUE,           // Use system pagefile
+            NULL,                           // Default security attributes
+            PAGE_READWRITE,                 // Read/Write access
+            0,                              // High size
+            sizeof(SharedMemoryLayout),     // Low size
+            sharedMemoryName.c_str()        // Mapping object name
         );
 
         if (hMapFile == NULL) {
-            std::cerr << "创建共享内存失败: " << GetLastError() << std::endl;
+            std::cerr << "Create shared memory failed: " << GetLastError() << std::endl;
             return false;
         }
 
-        // 映射共享内存到进程地址空间
+        // Map shared memory to process address space
         pSharedMemory = (SharedMemoryLayout*)MapViewOfFile(
-            hMapFile,                       // 映射对象句柄
-            FILE_MAP_ALL_ACCESS,            // 读写访问
-            0, 0,                           // 偏移量
-            sizeof(SharedMemoryLayout)      // 映射大小
+            hMapFile,                       // Mapping object handle
+            FILE_MAP_ALL_ACCESS,            // Read/Write access
+            0, 0,                           // Offset
+            sizeof(SharedMemoryLayout)      // Mapping size
         );
 
         if (pSharedMemory == nullptr) {
-            std::cerr << "映射共享内存失败: " << GetLastError() << std::endl;
+            std::cerr << "Map shared memory failed: " << GetLastError() << std::endl;
             CloseHandle(hMapFile);
             return false;
         }
 
-        // 初始化共享内存结构
+        // Initialize shared memory structure
         new (pSharedMemory) SharedMemoryLayout();
 
-        std::cout << "共享内存IPC服务器初始化成功" << std::endl;
+        std::cout << "Shared memory IPC server initialization successful" << std::endl;
         return true;
     }
 
@@ -86,63 +88,63 @@ public:
         isRunning = true;
         uint32_t lastProcessedSequence = 0;
 
-        std::cout << "开始超高速处理循环..." << std::endl;
+        std::cout << "Starting ultra-fast processing loop..." << std::endl;
 
         while (isRunning) {
-            // 使用原子操作检查是否有新请求 - 这比系统调用快得多
+            // Use atomic operations to check for new requests - This is much faster than system calls
             uint32_t currentSequence = pSharedMemory->sequence_id.load(std::memory_order_acquire);
             uint32_t requestFlag = pSharedMemory->request_flag.load(std::memory_order_acquire);
 
-            // 只有在有新请求时才处理，避免无意义的CPU消耗
+            // Only process if there is a new request to avoid unnecessary CPU consumption
             if (requestFlag == 1 && currentSequence != lastProcessedSequence) {
 
-                // 记录开始处理时间
+                // Record the start processing time
                 uint64_t startTime = GetMicroseconds();
                 pSharedMemory->last_request_time = startTime;
 
-                // 原子性地标记正在处理
+                // Atomically mark as processing
                 pSharedMemory->request_flag.store(2, std::memory_order_release);
 
-                // 处理请求 - 这里是你的核心业务逻辑
+                // Process request - This is your core business logic
                 ProcessRequestUltraFast();
 
-                // 记录处理完成时间
+                // Record the end processing time
                 uint64_t endTime = GetMicroseconds();
                 pSharedMemory->last_response_time = endTime;
 
-                // 标记响应就绪
+                // Mark response as ready
                 pSharedMemory->response_flag.store(1, std::memory_order_release);
                 pSharedMemory->request_flag.store(0, std::memory_order_release);
 
-                // 更新统计信息
+                // Update statistics
                 pSharedMemory->total_requests++;
                 lastProcessedSequence = currentSequence;
 
-                // 输出性能统计（可选，生产环境中可能需要关闭）
+                // Output performance statistics (optional, may need to be turned off in production)
                 uint64_t processingTime = endTime - startTime;
-                if (processingTime > 100) {  // 只有超过100微秒才报告
-                    std::cout << "处理时间: " << processingTime << " 微秒" << std::endl;
+                if (processingTime > 100) {  // Only report if processing time is more than 100 microseconds
+                    std::cout << "Processing time: " << processingTime << " microseconds" << std::endl;
                 }
             }
 
-            // 极短的休眠，让出CPU时间片但保持高响应性
-            // 在某些情况下，你可能需要完全移除这个Sleep以获得极致性能
-            Sleep(0);  // 让出时间片但立即重新调度
+            // Extremely short sleep, yield CPU time slice but keep high responsiveness
+            // In some cases, you may need to completely remove this Sleep to achieve extreme performance
+            Sleep(0);  // Yield time slice but immediately reschedule
         }
     }
 
 private:
     void ProcessRequestUltraFast() {
-        // 获取请求数据 - 注意这里没有任何内存分配
+        // Get request data - Note that there is no memory allocation here
         uint32_t requestSize = pSharedMemory->request_size;
         const char* requestData = pSharedMemory->request_data;
 
-        // 你的超快业务逻辑在这里
-        // 示例：简单的字符串处理
+        // Your ultra-fast business logic here
+        // Example: simple string processing
         const char* response = "PROCESSED_ULTRA_FAST";
         uint32_t responseLen = strlen(response);
 
-        // 直接写入共享内存，无需额外分配
+        // Directly write to shared memory, no extra allocation needed
         memcpy(pSharedMemory->response_data, response, responseLen);
         pSharedMemory->response_size = responseLen;
     }
@@ -161,18 +163,21 @@ public:
     }
 };
 
-// 32位进程的主函数
+// Main function for a 32-bit process
 int main() {
-    std::cout << "=== 超高性能32位IPC服务器 ===" << std::endl;
+
+    auto status = pe32_init();
+
+    std::cout << "=== High performance 32-bit IPC server ===" << std::endl;
 
     UltraFastIPCServer server("UltraFastIPC_SharedMem");
 
     if (!server.Initialize()) {
-        std::cerr << "服务器初始化失败" << std::endl;
+        std::cerr << "Server initialization failed" << std::endl;
         return -1;
     }
 
-    // 开始处理（这会阻塞主线程）
+    // Start processing (this will block the main thread)
     server.StartProcessing();
 
     return 0;

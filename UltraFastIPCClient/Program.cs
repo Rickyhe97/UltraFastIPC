@@ -1,31 +1,27 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
+﻿using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
-// 共享内存布局结构 - 必须与C++端完全一致
+// Shared memory layout structure - must be exactly the same as the C++ end
 [StructLayout(LayoutKind.Sequential)]
 public struct SharedMemoryLayout
 {
-    public uint request_flag;        // 请求标志
-    public uint response_flag;       // 响应标志  
-    public uint sequence_id;         // 序列号
-    public uint request_size;        // 请求大小
-    public uint response_size;       // 响应大小
+    public uint request_flag;        // Request flag
+    public uint response_flag;       // Response flag  
+    public uint sequence_id;         // Sequence number
+    public uint request_size;        // Request size
+    public uint response_size;       // Response size
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] request_data;      // 请求数据
+    public byte[] request_data;      // Request data
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] response_data;     // 响应数据
+    public byte[] response_data;     // Response data
 
-    public ulong last_request_time;  // 最后请求时间
-    public ulong last_response_time; // 最后响应时间
-    public uint total_requests;      // 总请求数
+    public ulong last_request_time;  // Last request time
+    public ulong last_response_time; // Last response time
+    public uint total_requests;      // Total number of requests
 }
 
 public class UltraFastIPCClient : IDisposable
@@ -38,7 +34,7 @@ public class UltraFastIPCClient : IDisposable
     private uint sequenceCounter = 1;
     private bool disposed = false;
 
-    // 高精度计时器
+    // High precision timer
     [DllImport("kernel32.dll")]
     private static extern bool QueryPerformanceCounter(out long lpPerformanceCount);
 
@@ -52,10 +48,10 @@ public class UltraFastIPCClient : IDisposable
         this.bridgeExecutablePath = bridgeExePath;
         this.sharedMemoryName = sharedMemName;
 
-        // 初始化高精度计时器
+        // Initialize high precision timer
         QueryPerformanceFrequency(out performanceFrequency);
 
-        Console.WriteLine("超高性能IPC客户端初始化完成");
+        Console.WriteLine("Ultra-fast IPC client initialization completed");
     }
 
     private long GetMicroseconds()
@@ -68,42 +64,42 @@ public class UltraFastIPCClient : IDisposable
     {
         try
         {
-            Console.WriteLine("启动32位桥接进程...");
+            Console.WriteLine("Starting 32-bit bridge process...");
 
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                FileName = bridgeExecutablePath,
-                UseShellExecute = false,
-                CreateNoWindow = false
-            };
+            //ProcessStartInfo startInfo = new ProcessStartInfo
+            //{
+            //    FileName = bridgeExecutablePath,
+            //    UseShellExecute = false,
+            //    CreateNoWindow = false
+            //};
 
-            bridgeProcess = Process.Start(startInfo);
+            //bridgeProcess = Process.Start(startInfo);
 
-            if (bridgeProcess == null)
-            {
-                throw new InvalidOperationException("无法启动桥接进程");
-            }
+            //if (bridgeProcess == null)
+            //{
+            //    throw new InvalidOperationException("Failed to start bridge process");
+            //}
 
-            // 等待进程初始化
+            // Wait for process initialization
             await Task.Delay(1000);
 
-            // 连接到共享内存
+            // Connect to shared memory
             try
             {
                 mmf = MemoryMappedFile.OpenExisting(sharedMemoryName);
                 accessor = mmf.CreateViewAccessor(0, Marshal.SizeOf<SharedMemoryLayout>());
 
-                Console.WriteLine("成功连接到共享内存");
+                Console.WriteLine("Successfully connected to shared memory");
                 return true;
             }
             catch (FileNotFoundException)
             {
-                throw new InvalidOperationException("无法连接到共享内存，请确保32位程序正常运行");
+                throw new InvalidOperationException("Failed to connect to shared memory, please ensure the 32-bit program is running");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"启动失败: {ex.Message}");
+            Console.WriteLine($"Startup failed: {ex.Message}");
             return false;
         }
     }
@@ -111,42 +107,42 @@ public class UltraFastIPCClient : IDisposable
     public async Task<string> SendRequestUltraFastAsync(string request, int timeoutMicroseconds = 1000)
     {
         if (accessor == null)
-            throw new InvalidOperationException("IPC客户端未初始化");
+            throw new InvalidOperationException("IPC client is not initialized");
 
         long startTime = GetMicroseconds();
 
         try
         {
-            // 准备请求数据
+            // Prepare request data
             byte[] requestBytes = Encoding.UTF8.GetBytes(request);
             if (requestBytes.Length > 4096)
-                throw new ArgumentException("请求数据过大");
+                throw new ArgumentException("Request data is too large");
 
             uint currentSequence = ++sequenceCounter;
 
-            // 写入请求到共享内存 - 这些操作都是内存级别的，极其快速
-            accessor.Write(12, (uint)requestBytes.Length);  // request_size位置
-            accessor.WriteArray(20, requestBytes, 0, requestBytes.Length);  // request_data位置
+            // Write request to shared memory - these operations are memory level and extremely fast
+            accessor.Write(12, (uint)requestBytes.Length);  // request_size position
+            accessor.WriteArray(20, requestBytes, 0, requestBytes.Length);  // request_data position
 
-            // 原子性地设置序列号和标志
+            // Atomically set sequence number and flag
             accessor.Write(8, currentSequence);   // sequence_id
             accessor.Write(0, (uint)1);          // request_flag = 1
 
-            // 等待响应 - 使用忙等待以获得最低延迟
+            // Wait for response - use busy waiting to get the lowest latency
             long timeoutTime = startTime + timeoutMicroseconds;
 
             while (GetMicroseconds() < timeoutTime)
             {
-                uint responseFlag = accessor.ReadUInt32(4);  // response_flag位置
+                uint responseFlag = accessor.ReadUInt32(4);  // response_flag position
 
                 if (responseFlag == 1)
                 {
-                    // 读取响应
-                    uint responseSize = accessor.ReadUInt32(16);  // response_size位置
+                    // Read response
+                    uint responseSize = accessor.ReadUInt32(16);  // response_size position
                     byte[] responseBytes = new byte[responseSize];
-                    accessor.ReadArray(4116, responseBytes, 0, (int)responseSize);  // response_data位置
+                    accessor.ReadArray(4116, responseBytes, 0, (int)responseSize);  // response_data position
 
-                    // 清除响应标志
+                    // Clear response flag
                     accessor.Write(4, (uint)0);  // response_flag = 0
 
                     long endTime = GetMicroseconds();
@@ -154,20 +150,20 @@ public class UltraFastIPCClient : IDisposable
 
                     string response = Encoding.UTF8.GetString(responseBytes);
 
-                    Console.WriteLine($"请求完成，总耗时: {totalTime} 微秒");
+                    Console.WriteLine($"Request completed, total time: {totalTime} microseconds");
 
                     return response;
                 }
 
-                // 极短暂的让出CPU，但保持高响应性
+                // Extremely short CPU yield, but maintains high responsiveness
                 Thread.Yield();
             }
 
-            throw new TimeoutException($"请求超时 ({timeoutMicroseconds} 微秒)");
+            throw new TimeoutException($"Request timed out ({timeoutMicroseconds} microseconds)");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"发送请求失败: {ex.Message}");
+            Console.WriteLine($"Request sending failed: {ex.Message}");
             throw;
         }
     }
@@ -191,47 +187,55 @@ public class UltraFastIPCClient : IDisposable
     }
 }
 
-// 性能测试程序
+// Performance test program
 class Program
 {
     static async Task Main(string[] args)
     {
-        Console.WriteLine("=== 超高性能IPC测试 ===");
+        Console.WriteLine("=== Ultra-fast IPC test ===");
 
-        using (var client = new UltraFastIPCClient(@"C:\Repository\Demo\UltraFastIPC\x64\Debug\UltraFastIPC.exe"))
+        using (var client = new UltraFastIPCClient(@"..\..\..\..\..\x64\Release\UltraFastIPC.exe"))
         {
             if (!await client.StartBridgeAsync())
             {
-                Console.WriteLine("启动失败");
+                Console.WriteLine("Startup failed");
                 return;
             }
 
-            Console.WriteLine("开始性能测试...");
+            Console.WriteLine("Starting performance test...");
 
-            // 预热系统
+            // Warm up the system
             for (int i = 0; i < 10; i++)
             {
                 await client.SendRequestUltraFastAsync("warmup");
             }
 
-            // 正式性能测试
+            // Official performance test
             const int testCount = 1000;
             var stopwatch = Stopwatch.StartNew();
-
+            var stopwatch2=new Stopwatch();
+            var times = new List<double>();
             for (int i = 0; i < testCount; i++)
             {
+                stopwatch2.Restart();
                 await client.SendRequestUltraFastAsync($"test_{i}");
+                stopwatch2.Stop();
+                times.Add((stopwatch2.ElapsedTicks * 1000000.0) / Stopwatch.Frequency);
             }
 
             stopwatch.Stop();
 
             double averageTime = (stopwatch.ElapsedTicks * 1000000.0) / (Stopwatch.Frequency * testCount);
 
-            Console.WriteLine($"性能测试完成:");
-            Console.WriteLine($"总请求数: {testCount}");
-            Console.WriteLine($"总耗时: {stopwatch.ElapsedMilliseconds} 毫秒");
-            Console.WriteLine($"平均延迟: {averageTime:F1} 微秒");
+            Console.WriteLine(string.Join(" us\n ", times));
+
+            Console.WriteLine($"Performance test completed:");
+            Console.WriteLine($"Total number of requests: {testCount}");
+            Console.WriteLine($"Total time: {stopwatch.ElapsedMilliseconds} ms");
+            Console.WriteLine($"Average latency: {averageTime:F1} us");
             Console.WriteLine($"QPS: {testCount * 1000.0 / stopwatch.ElapsedMilliseconds:F0}");
+            Console.WriteLine("=== End of test ===");
+            Console.ReadLine();
         }
     }
 }
