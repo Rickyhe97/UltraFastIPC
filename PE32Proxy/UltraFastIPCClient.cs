@@ -1,7 +1,14 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
+
+namespace PE32Proxy;
+
 
 // Shared memory layout structure - must be exactly the same as the C++ end
 [StructLayout(LayoutKind.Sequential)]
@@ -24,7 +31,7 @@ public struct SharedMemoryLayout
     public uint total_requests;      // Total number of requests
 }
 
-public class UltraFastIPCClient : IDisposable
+internal class UltraFastIPCClient : IDisposable
 {
     private readonly string sharedMemoryName;
     private readonly string bridgeExecutablePath;
@@ -43,7 +50,7 @@ public class UltraFastIPCClient : IDisposable
 
     private long performanceFrequency;
 
-    public UltraFastIPCClient(string bridgeExePath, string sharedMemName = "UltraFastIPC_SharedMem")
+    internal UltraFastIPCClient(string bridgeExePath, string sharedMemName = "UltraFastIPC_SharedMem")
     {
         this.bridgeExecutablePath = bridgeExePath;
         this.sharedMemoryName = sharedMemName;
@@ -60,28 +67,28 @@ public class UltraFastIPCClient : IDisposable
         return (counter * 1000000L) / performanceFrequency;
     }
 
-    public async Task<bool> StartBridgeAsync()
+    public bool StartBridgeProcess()
     {
         try
         {
             Console.WriteLine("Starting 32-bit bridge process...");
 
-            //ProcessStartInfo startInfo = new ProcessStartInfo
-            //{
-            //    FileName = bridgeExecutablePath,
-            //    UseShellExecute = false,
-            //    CreateNoWindow = false
-            //};
+            ProcessStartInfo startInfo = new ProcessStartInfo
+            {
+                FileName = bridgeExecutablePath,
+                UseShellExecute = false,
+                CreateNoWindow = false
+            };
 
-            //bridgeProcess = Process.Start(startInfo);
+            bridgeProcess = Process.Start(startInfo);
 
-            //if (bridgeProcess == null)
-            //{
-            //    throw new InvalidOperationException("Failed to start bridge process");
-            //}
+            if (bridgeProcess == null)
+            {
+                throw new InvalidOperationException("Failed to start bridge process");
+            }
 
             // Wait for process initialization
-            await Task.Delay(1000);
+            Thread.Sleep(1000);
 
             // Connect to shared memory
             try
@@ -104,7 +111,7 @@ public class UltraFastIPCClient : IDisposable
         }
     }
 
-    public async Task<string> SendRequestUltraFastAsync(string request, int timeoutMicroseconds = 1000)
+    public string SendRequestUltraFast(string request, int timeoutMicroseconds = 1000000)
     {
         if (accessor == null)
             throw new InvalidOperationException("IPC client is not initialized");
@@ -150,7 +157,7 @@ public class UltraFastIPCClient : IDisposable
 
                     string response = Encoding.UTF8.GetString(responseBytes);
 
-                    Console.WriteLine($"Request completed, total time: {totalTime} microseconds");
+                    //Console.WriteLine($"Request completed, total time: {totalTime} us");
 
                     return response;
                 }
@@ -183,59 +190,6 @@ public class UltraFastIPCClient : IDisposable
             bridgeProcess?.Dispose();
 
             disposed = true;
-        }
-    }
-}
-
-// Performance test program
-class Program
-{
-    static async Task Main(string[] args)
-    {
-        Console.WriteLine("=== Ultra-fast IPC test ===");
-
-        using (var client = new UltraFastIPCClient(@"..\..\..\..\..\x64\Release\UltraFastIPC.exe"))
-        {
-            if (!await client.StartBridgeAsync())
-            {
-                Console.WriteLine("Startup failed");
-                return;
-            }
-
-            Console.WriteLine("Starting performance test...");
-
-            // Warm up the system
-            for (int i = 0; i < 10; i++)
-            {
-                await client.SendRequestUltraFastAsync("warmup");
-            }
-
-            // Official performance test
-            const int testCount = 1000;
-            var stopwatch = Stopwatch.StartNew();
-            var stopwatch2=new Stopwatch();
-            var times = new List<double>();
-            for (int i = 0; i < testCount; i++)
-            {
-                stopwatch2.Restart();
-                await client.SendRequestUltraFastAsync($"test_{i}");
-                stopwatch2.Stop();
-                times.Add((stopwatch2.ElapsedTicks * 1000000.0) / Stopwatch.Frequency);
-            }
-
-            stopwatch.Stop();
-
-            double averageTime = (stopwatch.ElapsedTicks * 1000000.0) / (Stopwatch.Frequency * testCount);
-
-            Console.WriteLine(string.Join(" us\n ", times));
-
-            Console.WriteLine($"Performance test completed:");
-            Console.WriteLine($"Total number of requests: {testCount}");
-            Console.WriteLine($"Total time: {stopwatch.ElapsedMilliseconds} ms");
-            Console.WriteLine($"Average latency: {averageTime:F1} us");
-            Console.WriteLine($"QPS: {testCount * 1000.0 / stopwatch.ElapsedMilliseconds:F0}");
-            Console.WriteLine("=== End of test ===");
-            Console.ReadLine();
         }
     }
 }
