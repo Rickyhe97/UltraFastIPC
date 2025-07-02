@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,7 +18,18 @@ public class PE32Proxy : IDisposable
 
     public PE32Proxy()
     {
-        client = new UltraFastIPCClient(@"..\..\..\..\Debug\UltraFastIPC.exe");
+        string exePath = "UltraFastIPC.exe";
+
+        if (!File.Exists(exePath))
+        {
+            exePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                @"InfiniTest\PE32Proxy",
+                "UltraFastIPC.exe"
+            );
+        }
+
+        client = new UltraFastIPCClient(exePath);
 
         if (!client.StartBridgeProcess())
         {

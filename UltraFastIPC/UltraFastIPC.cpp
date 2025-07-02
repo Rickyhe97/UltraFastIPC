@@ -164,7 +164,7 @@ private:
 			else if (tokens[0] == "pe32_usb") {
 				response = std::to_string(pe32_usb());
 			}
-			else if (tokens[0] == "pe32_CSenter") {
+	/*		else if (tokens[0] == "pe32_CSenter") {
 				pe32_CSenter();
 			}
 			else if (tokens[0] == "pe32_CSleave") {
@@ -172,7 +172,7 @@ private:
 			}
 			else if (tokens[0] == "pe32_mdelay") {
 				pe32_mdelay(std::stoi(tokens[1]));
-			}
+			}*/
 			else if (tokens[0] == "pe32_readl") {
 				int bdn = std::stoi(tokens[1]);
 				int offset = std::stoi(tokens[2]);
@@ -603,11 +603,11 @@ private:
 				int onoff = std::stoi(tokens[2]);
 				pe32_set_logmode(bdn, onoff);
 			}
-			else if (tokens[0] == "pe32_set_208M") {
+		/*	else if (tokens[0] == "pe32_set_208M") {
 				int bdn = std::stoi(tokens[1]);
 				int onoff = std::stoi(tokens[2]);
 				pe32_set_208M(bdn, onoff);
-			}
+			}*/
 			else if (tokens[0] == "pe32_check_ucnt") {
 				int bdn = std::stoi(tokens[1]);
 				response = std::to_string(pe32_check_ucnt(bdn));
@@ -1017,7 +1017,7 @@ private:
 			int bdn = std::stoi(tokens[1]);
 			int port = std::stoi(tokens[2]);
 			int add = std::stoi(tokens[3]);
-			response = std::to_string(pe32_rffe_getword(bdn, port, add));
+			response = std::to_string(pe32_rffe_getword(bdn, port));
 		}
 		else if (tokens[0] == "pe32_rffe_wr0") {
 			int bdn = std::stoi(tokens[1]);
@@ -1063,7 +1063,7 @@ private:
 			int bcnt = std::stoi(tokens[7]);
 			pe32_rffe_cmdrd(bdn, port, sadd, cmd, add, data, bcnt);
 		}
-		else if (tokens[0] == "pe32_rffe_set_word") {
+	/*	else if (tokens[0] == "pe32_rffe_set_word") {
 			int bdn = std::stoi(tokens[1]);
 			int port = std::stoi(tokens[2]);
 			int data = std::stoi(tokens[3]);
@@ -1074,7 +1074,7 @@ private:
 			int bdn = std::stoi(tokens[1]);
 			int onoff = std::stoi(tokens[2]);
 			pe32_rffe_mipi2(bdn, onoff);
-		}
+		}*/
 		else if (tokens[0] == "pe32_set_qmode") {
 			int bdn = std::stoi(tokens[1]);
 			int onoff = std::stoi(tokens[2]);
@@ -1176,7 +1176,6 @@ int main() {
 
 	// Start processing (this will block the main thread)
 	server.StartProcessing();
-
 	return 0;
 }
 

@@ -78,6 +78,12 @@
     <IncludePath>C:\OpenATE\MTS3\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\OpenATE\MTS3\bin;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>..\PE32Proxy\bin\Debug\net7.0</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>..\PE32Proxy\bin\Debug\net7.0</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
