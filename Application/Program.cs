@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 Console.WriteLine("Hello, World!");
 Thread.Sleep(1000);
-var pe32 = new PE32Proxy.PE32Proxy();
+using var pe32 = new PE32Proxy.PE32Proxy();
 pe32.TestCommunication();
 
 //pe32.Initialize();

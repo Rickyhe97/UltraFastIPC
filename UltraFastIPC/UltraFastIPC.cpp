@@ -487,6 +487,7 @@ private:
 				char* patternfileChar = new char[tokens[4].size()];
 				strcpy(patternfileChar, tokens[4].c_str());
 				response = std::to_string(pe32_lmload(begbdno, boardwidth, begadd, patternfileChar));
+				delete[] patternfileChar;
 			}
 			else if (tokens[0] == "pe32_lmsave") {
 				int begbdno = std::stoi(tokens[1]);
@@ -496,6 +497,7 @@ private:
 				char* patternfileChar = new char[tokens[4].size()];
 				strcpy(patternfileChar, tokens[4].c_str());
 				response = std::to_string(pe32_lmsave(begbdno, boardwidth, begadd, endadd, patternfileChar));
+				delete[] patternfileChar;
 			}
 			else if (tokens[0] == "pe32_rd_cmph") {
 				int bdn = std::stoi(tokens[1]);
@@ -1137,6 +1139,7 @@ private:
 			char* data = new char[tokens[3].size() + 1];
 			int size = std::stoi(tokens[4]);
 			response = std::to_string(pe32_user_fram_load(bdn, ADD, data, size));
+			delete[] data;
 		}
 		else {
 			response = "Unknown command";

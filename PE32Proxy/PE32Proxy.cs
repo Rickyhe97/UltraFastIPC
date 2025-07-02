@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace PE32Proxy;
 
-public class PE32Proxy
+public class PE32Proxy : IDisposable
 {
+    private bool disposed = false;
+
     private readonly UltraFastIPCClient client;
 
     public int SerialNumber { get; private set; }
@@ -30,6 +32,24 @@ public class PE32Proxy
         }
     }
 
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposed)
+        {
+            if (disposing)
+            {
+                client?.Dispose();
+            }
+            disposed = true;
+        }
+    }
+
     private string SendRequest(string request, params object[] args)
     {
         string cmdStr = $"{request} {string.Join(" ", args)}".Trim();
@@ -42,6 +62,8 @@ public class PE32Proxy
         string response = SendRequest("test");
         //Console.WriteLine(response);
     }
+
+    #region PE32 API
 
     public int Initialize()
     {
@@ -387,9 +409,7 @@ public class PE32Proxy
             );
         }
 
-        return int.Parse(
-            SendRequest("pe32_lmload", begbdno, boardwidth, begadd, patternfile)
-        );
+        return int.Parse(SendRequest("pe32_lmload", begbdno, boardwidth, begadd, patternfile));
     }
 
     public void pe32_set_qmode(int bdno, int onoff)
@@ -551,4 +571,6 @@ public class PE32Proxy
     {
         SendRequest("pe32_rffe_wr0", bdno, port, sadd, data);
     }
+
+    #endregion
 }
