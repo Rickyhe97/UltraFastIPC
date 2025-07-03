@@ -9,21 +9,4 @@
     <BaseOutputPath></BaseOutputPath>
   </PropertyGroup>
 
-  <ItemGroup>
-    <None Remove="UltraFastIPC.exe" />
-    <None Remove="UltraFastIPC.pdb" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="UltraFastIPC.pdb">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="UltraFastIPC.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-
 </Project>

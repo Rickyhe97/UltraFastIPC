@@ -28,7 +28,6 @@ struct SharedMemoryLayout {
 	// Performance statistics - For monitoring and optimization
 	uint64_t last_request_time;                // Time of last request (microseconds)
 	uint64_t last_response_time;               // Time of last response (microseconds)
-	uint32_t total_requests;                   // Total number of requests
 };
 
 class UltraFastIPCServer {
@@ -36,6 +35,7 @@ private:
 	HANDLE hMapFile;
 	SharedMemoryLayout* pSharedMemory;
 	bool isRunning;
+	int parentPid;
 	std::string sharedMemoryName;
 
 	// High precision timer - Microsecond-level precision measurement
@@ -47,8 +47,8 @@ private:
 	}
 
 public:
-	UltraFastIPCServer(const std::string& name)
-		: sharedMemoryName(name), isRunning(false), hMapFile(nullptr), pSharedMemory(nullptr) {
+	UltraFastIPCServer(const std::string& name,int id)
+		: sharedMemoryName(name), parentPid(id), isRunning(false), hMapFile(nullptr), pSharedMemory(nullptr) {
 	}
 
 	bool Initialize() {
@@ -91,7 +91,6 @@ public:
 	void StartProcessing() {
 		isRunning = true;
 		uint32_t lastProcessedSequence = 0;
-
 		std::cout << "Starting ultra-fast processing loop..." << std::endl;
 
 		while (isRunning) {
@@ -102,9 +101,9 @@ public:
 			// Only process if there is a new request to avoid unnecessary CPU consumption
 			if (requestFlag == 1 && currentSequence != lastProcessedSequence) {
 
-				// Record the start processing time
-				uint64_t startTime = GetMicroseconds();
-				pSharedMemory->last_request_time = startTime;
+				//// Record the start processing time
+				//uint64_t startTime = GetMicroseconds();
+				//pSharedMemory->last_request_time = startTime;
 
 				// Atomically mark as processing
 				pSharedMemory->request_flag.store(2, std::memory_order_release);
@@ -112,23 +111,54 @@ public:
 				// Process request - This is your core business logic
 				ProcessRequestUltraFast();
 
-				// Record the end processing time
-				uint64_t endTime = GetMicroseconds();
-				pSharedMemory->last_response_time = endTime;
+				//// Record the end processing time
+				//uint64_t endTime = GetMicroseconds();
+				//pSharedMemory->last_response_time = endTime;
 
 				// Mark response as ready
 				pSharedMemory->response_flag.store(1, std::memory_order_release);
 				pSharedMemory->request_flag.store(0, std::memory_order_release);
 
 				// Update statistics
-				pSharedMemory->total_requests++;
 				lastProcessedSequence = currentSequence;
 
-				// Output performance statistics (optional, may need to be turned off in production)
-				uint64_t processingTime = endTime - startTime;
-				if (processingTime > 1000) {  // Only report if processing time is more than 1000 microseconds
-					std::cout << "Processing time: " << processingTime << " microseconds" << std::endl;
+				//// Output performance statistics (optional, may need to be turned off in production)
+				//uint64_t processingTime = endTime - startTime;
+				//if (processingTime > 1000) {  // Only report if processing time is more than 1000 microseconds
+				//	std::cout << "Processing time: " << processingTime << " microseconds" << std::endl;
+				//}
+			}
+
+			HANDLE hParent = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_INFORMATION, FALSE, (DWORD)parentPid);
+
+			if (hParent == NULL) {
+				DWORD err = GetLastError();
+				ExitProcess(0);
+				std::cout << "Parent process not found, exiting: " << err << std::endl;
+				return;
+			}
+			else {
+
+				DWORD exitCode = 0;
+
+				if (!GetExitCodeProcess(hParent, &exitCode)) {
+					DWORD err = GetLastError();
+					std::cerr << "GetExitCodeProcess failed£¬error code: " << err << std::endl;
+					if (err == ERROR_ACCESS_DENIED) {
+						std::cerr << "Please try PROCESS_QUERY_LIMITED_INFORMATION¡£" << std::endl;
+					}
+					else if (err == ERROR_INVALID_HANDLE) {
+						std::cerr << "Unvalued handle." << std::endl;
+					}
 				}
+
+				CloseHandle(hParent);
+
+				if (exitCode != STILL_ACTIVE) {
+					std::cout << "Parent process has exited, exiting server." << std::endl;
+					isRunning = false;  // Stop processing loop
+				}
+
 			}
 
 			// Extremely short sleep, yield CPU time slice but keep high responsiveness
@@ -1161,13 +1191,16 @@ public:
 };
 
 // Main function for a 32-bit process
-int main() {
+int main(int argc, char* argv[]) {
 
-	auto status = pe32_init();
+	auto id = (DWORD)std::stoi(argv[1]);
 
+	std::cout << "Parent process ID: " << id << std::endl;
+	std::cout << "Current Process ID: " << GetCurrentProcessId() << std::endl;
 	std::cout << "=== High performance 32-bit IPC server ===" << std::endl;
 
-	UltraFastIPCServer server("UltraFastIPC_SharedMem");
+	UltraFastIPCServer server("UltraFastIPC_SharedMem", id);
+
 
 	if (!server.Initialize()) {
 		std::cerr << "Server initialization failed" << std::endl;
@@ -1176,6 +1209,7 @@ int main() {
 
 	// Start processing (this will block the main thread)
 	server.StartProcessing();
+
 	return 0;
 }
 

@@ -12,16 +12,18 @@ pe32.TestCommunication();
 //var status=pe32.pe32_init();
 
 // Official performance test
-const int testCount = 1000;
+const int testCount = 100000;
 var stopwatch = Stopwatch.StartNew();
 var stopwatch2 = new Stopwatch();
 var times = new List<double>();
 for (int i = 0; i < testCount; i++)
 {
     stopwatch2.Restart();
-    pe32.TestCommunication();
+    pe32.TestCommunication($"Test cycle {i + 1}");
     stopwatch2.Stop();
     times.Add((stopwatch2.ElapsedTicks * 1000000.0) / Stopwatch.Frequency);
+
+    //Console.WriteLine($"Request {i + 1}/{testCount}: {times[i]:F1} us");
 }
 
 stopwatch.Stop();
@@ -36,4 +38,5 @@ Console.WriteLine($"Total time: {stopwatch.ElapsedMilliseconds} ms");
 Console.WriteLine($"Average latency: {averageTime:F1} us");
 Console.WriteLine($"QPS: {testCount * 1000.0 / stopwatch.ElapsedMilliseconds:F0}");
 Console.WriteLine("=== End of test ===");
-Console.ReadLine();
+Console.WriteLine("Press any key to exit...");
+Console.ReadKey();

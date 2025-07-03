@@ -69,9 +69,9 @@ public class PE32Proxy : IDisposable
         return response;
     }
 
-    public void TestCommunication()
+    public void TestCommunication(string msg = "test")
     {
-        string response = SendRequest("test");
+        string response = SendRequest(msg);
         //Console.WriteLine(response);
     }
 

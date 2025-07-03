@@ -9,26 +9,24 @@ using System.Threading.Tasks;
 
 namespace PE32Proxy;
 
-
 // Shared memory layout structure - must be exactly the same as the C++ end
 [StructLayout(LayoutKind.Sequential)]
 public struct SharedMemoryLayout
 {
-    public uint request_flag;        // Request flag
-    public uint response_flag;       // Response flag  
-    public uint sequence_id;         // Sequence number
-    public uint request_size;        // Request size
-    public uint response_size;       // Response size
+    public uint request_flag; // Request flag
+    public uint response_flag; // Response flag
+    public uint sequence_id; // Sequence number
+    public uint request_size; // Request size
+    public uint response_size; // Response size
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] request_data;      // Request data
+    public byte[] request_data; // Request data
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] response_data;     // Response data
+    public byte[] response_data; // Response data
 
-    public ulong last_request_time;  // Last request time
+    public ulong last_request_time; // Last request time
     public ulong last_response_time; // Last response time
-    public uint total_requests;      // Total number of requests
 }
 
 internal class UltraFastIPCClient : IDisposable
@@ -50,7 +48,10 @@ internal class UltraFastIPCClient : IDisposable
 
     private long performanceFrequency;
 
-    internal UltraFastIPCClient(string bridgeExePath, string sharedMemName = "UltraFastIPC_SharedMem")
+    internal UltraFastIPCClient(
+        string bridgeExePath,
+        string sharedMemName = "UltraFastIPC_SharedMem"
+    )
     {
         this.bridgeExecutablePath = bridgeExePath;
         this.sharedMemoryName = sharedMemName;
@@ -73,12 +74,14 @@ internal class UltraFastIPCClient : IDisposable
         {
             Console.WriteLine("Starting 32-bit bridge process...");
 
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                FileName = bridgeExecutablePath,
-                UseShellExecute = false,
-                CreateNoWindow = false
-            };
+            ProcessStartInfo startInfo =
+                new()
+                {
+                    FileName = bridgeExecutablePath,
+                    Arguments = Environment.ProcessId.ToString(),
+                    UseShellExecute = true,
+                    CreateNoWindow = false
+                };
 
             bridgeProcess = Process.Start(startInfo);
 
@@ -101,7 +104,9 @@ internal class UltraFastIPCClient : IDisposable
             }
             catch (FileNotFoundException)
             {
-                throw new InvalidOperationException("Failed to connect to shared memory, please ensure the 32-bit program is running");
+                throw new InvalidOperationException(
+                    "Failed to connect to shared memory, please ensure the 32-bit program is running"
+                );
             }
         }
         catch (Exception ex)
@@ -128,36 +133,35 @@ internal class UltraFastIPCClient : IDisposable
             uint currentSequence = ++sequenceCounter;
 
             // Write request to shared memory - these operations are memory level and extremely fast
-            accessor.Write(12, (uint)requestBytes.Length);  // request_size position
-            accessor.WriteArray(20, requestBytes, 0, requestBytes.Length);  // request_data position
+            accessor.Write(12, (uint)requestBytes.Length); // request_size position
+            accessor.WriteArray(20, requestBytes, 0, requestBytes.Length); // request_data position
 
             // Atomically set sequence number and flag
-            accessor.Write(8, currentSequence);   // sequence_id
-            accessor.Write(0, (uint)1);          // request_flag = 1
+            accessor.Write(8, currentSequence); // sequence_id
+            accessor.Write(0, (uint)1); // request_flag = 1
 
             // Wait for response - use busy waiting to get the lowest latency
             long timeoutTime = startTime + timeoutMicroseconds;
 
             while (GetMicroseconds() < timeoutTime)
             {
-                uint responseFlag = accessor.ReadUInt32(4);  // response_flag position
+                uint responseFlag = accessor.ReadUInt32(4); // response_flag position
+                uint requestFlag = accessor.ReadUInt32(0); // response_flag position
 
-                if (responseFlag == 1)
+                if (responseFlag == 1 && requestFlag == 0)
                 {
                     // Read response
-                    uint responseSize = accessor.ReadUInt32(16);  // response_size position
+                    uint responseSize = accessor.ReadUInt32(16); // response_size position
                     byte[] responseBytes = new byte[responseSize];
-                    accessor.ReadArray(4116, responseBytes, 0, (int)responseSize);  // response_data position
+                    accessor.ReadArray(4116, responseBytes, 0, (int)responseSize); // response_data position
 
                     // Clear response flag
-                    accessor.Write(4, (uint)0);  // response_flag = 0
+                    accessor.Write(4, (uint)0); // response_flag = 0
 
-                    long endTime = GetMicroseconds();
-                    long totalTime = endTime - startTime;
+                    //long endTime = GetMicroseconds();
+                    //long totalTime = endTime - startTime;
 
                     string response = Encoding.UTF8.GetString(responseBytes);
-
-                    //Console.WriteLine($"Request completed, total time: {totalTime} us");
 
                     return response;
                 }
@@ -165,8 +169,9 @@ internal class UltraFastIPCClient : IDisposable
                 // Extremely short CPU yield, but maintains high responsiveness
                 Thread.Yield();
             }
-
-            throw new TimeoutException($"Request timed out ({timeoutMicroseconds} microseconds)");
+            Console.WriteLine("Request timed out");
+            Console.ReadKey();
+            throw new TimeoutException($"Request timed out ({timeoutMicroseconds / 1000_000.0} s)");
         }
         catch (Exception ex)
         {
