@@ -13,38 +13,40 @@ namespace PE32Proxy;
 [StructLayout(LayoutKind.Sequential)]
 public struct SharedMemoryLayout
 {
-    public uint request_flag; // Request flag
-    public uint response_flag; // Response flag
-    public uint sequence_id; // Sequence number
-    public uint request_size; // Request size
-    public uint response_size; // Response size
+    public uint request_flag; // Offset: 0
+    public uint response_flag; // Offset: 4
+    public uint sequence_id; // Offset: 8
+    public uint request_size; // Offset: 12
+    public uint response_size; // Offset: 16
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] request_data; // Request data
+    public byte[] request_data; // Offset: 20
 
     [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
-    public byte[] response_data; // Response data
+    public byte[] response_data; // Offset: 4116
 
-    public ulong last_request_time; // Last request time
-    public ulong last_response_time; // Last response time
+    public ulong last_request_time; // Offset: 8212
+    public ulong last_response_time; // Offset: 8216
 }
 
-internal class UltraFastIPCClient : IDisposable
+internal partial class UltraFastIPCClient : IDisposable
 {
     private readonly string sharedMemoryName;
     private readonly string bridgeExecutablePath;
-    private MemoryMappedFile mmf;
-    private MemoryMappedViewAccessor accessor;
-    private Process bridgeProcess;
+    private MemoryMappedFile? mmf;
+    private MemoryMappedViewAccessor? accessor;
+    private Process? bridgeProcess;
     private uint sequenceCounter = 1;
     private bool disposed = false;
 
     // High precision timer
-    [DllImport("kernel32.dll")]
-    private static extern bool QueryPerformanceCounter(out long lpPerformanceCount);
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool QueryPerformanceCounter(out long lpPerformanceCount);
 
-    [DllImport("kernel32.dll")]
-    private static extern bool QueryPerformanceFrequency(out long lpFrequency);
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool QueryPerformanceFrequency(out long lpFrequency);
 
     private long performanceFrequency;
 
@@ -68,6 +70,11 @@ internal class UltraFastIPCClient : IDisposable
         return (counter * 1000000L) / performanceFrequency;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Interoperability",
+        "CA1416:Validate platform compatibility",
+        Justification = "<Pending>"
+    )]
     public bool StartBridgeProcess()
     {
         try
@@ -79,16 +86,13 @@ internal class UltraFastIPCClient : IDisposable
                 {
                     FileName = bridgeExecutablePath,
                     Arguments = Environment.ProcessId.ToString(),
-                    UseShellExecute = true,
+                    UseShellExecute = false,
                     CreateNoWindow = false
                 };
 
-            bridgeProcess = Process.Start(startInfo);
-
-            if (bridgeProcess == null)
-            {
-                throw new InvalidOperationException("Failed to start bridge process");
-            }
+            bridgeProcess =
+                Process.Start(startInfo)
+                ?? throw new InvalidOperationException("Failed to start bridge process");
 
             // Wait for process initialization
             Thread.Sleep(1000);
@@ -158,9 +162,6 @@ internal class UltraFastIPCClient : IDisposable
                     // Clear response flag
                     accessor.Write(4, (uint)0); // response_flag = 0
 
-                    //long endTime = GetMicroseconds();
-                    //long totalTime = endTime - startTime;
-
                     string response = Encoding.UTF8.GetString(responseBytes);
 
                     return response;
@@ -169,8 +170,7 @@ internal class UltraFastIPCClient : IDisposable
                 // Extremely short CPU yield, but maintains high responsiveness
                 Thread.Yield();
             }
-            Console.WriteLine("Request timed out");
-            Console.ReadKey();
+
             throw new TimeoutException($"Request timed out ({timeoutMicroseconds / 1000_000.0} s)");
         }
         catch (Exception ex)

@@ -79,7 +79,8 @@
     <LibraryPath>C:\OpenATE\MTS3\bin;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>..\Application\bin\Debug\net7.0</OutDir>
+    <OutDir>..\PE32Proxy\bin\Debug\net7.0</OutDir>
+    <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>..\PE32Proxy\bin\Debug\net7.0</OutDir>
@@ -98,6 +99,17 @@
       <AdditionalLibraryDirectories>C:\OpenATE\MTS3\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>pe32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>xcopy /Y /F "$(TargetPath)" "$(SolutionDir)Application\bin\Debug\net7.0\"
+xcopy /Y /F "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)Application\bin\Debug\net7.0\"</Command>
+    </PostBuildEvent>
+    <CustomBuildStep>
+      <Command>xcopy /Y /F "$(TargetPath)" "$(SolutionDir)Application\bin\Debug\net7.0\"</Command>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

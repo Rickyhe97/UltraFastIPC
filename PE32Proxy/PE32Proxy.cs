@@ -72,7 +72,6 @@ public class PE32Proxy : IDisposable
     public void TestCommunication(string msg = "test")
     {
         string response = SendRequest(msg);
-        //Console.WriteLine(response);
     }
 
     #region PE32 API
