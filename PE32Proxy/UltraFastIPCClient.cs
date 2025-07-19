@@ -50,6 +50,8 @@ internal partial class UltraFastIPCClient : IDisposable
 
     private long performanceFrequency;
 
+    internal bool DebugMode { get; init; }
+
     internal UltraFastIPCClient(
         string bridgeExePath,
         string sharedMemName = "UltraFastIPC_SharedMem"
@@ -85,9 +87,12 @@ internal partial class UltraFastIPCClient : IDisposable
                 new()
                 {
                     FileName = bridgeExecutablePath,
-                    Arguments = Environment.ProcessId.ToString(),
-                    UseShellExecute = false,
-                    CreateNoWindow = false
+                    Arguments = string.Join(
+                        " ",
+                        [Environment.ProcessId.ToString(), DebugMode ? "1" : "0"]
+                    ),
+                    UseShellExecute = DebugMode,
+                    CreateNoWindow = !DebugMode,
                 };
 
             bridgeProcess =
@@ -147,10 +152,10 @@ internal partial class UltraFastIPCClient : IDisposable
             // Wait for response - use busy waiting to get the lowest latency
             long timeoutTime = startTime + timeoutMicroseconds;
 
-            while (GetMicroseconds() < timeoutTime)
+            while (GetMicroseconds() < timeoutTime || DebugMode)
             {
                 uint responseFlag = accessor.ReadUInt32(4); // response_flag position
-                uint requestFlag = accessor.ReadUInt32(0); // response_flag position
+                uint requestFlag = accessor.ReadUInt32(0); // requestFlag position
 
                 if (responseFlag == 1 && requestFlag == 0)
                 {
@@ -161,6 +166,10 @@ internal partial class UltraFastIPCClient : IDisposable
 
                     // Clear response flag
                     accessor.Write(4, (uint)0); // response_flag = 0
+
+                    // Clear request data
+                    byte[] emptyRequestBytes = new byte[requestBytes.Length];
+                    accessor.WriteArray(20, emptyRequestBytes, 0, requestBytes.Length);
 
                     string response = Encoding.UTF8.GetString(responseBytes);
 

@@ -79,7 +79,7 @@
     <LibraryPath>C:\OpenATE\MTS3\bin;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>..\PE32Proxy\bin\Debug\net7.0</OutDir>
+    <OutDir>..\PE32Proxy\bin\Debug\net9.0</OutDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -104,8 +104,8 @@
       </Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>xcopy /Y /F "$(TargetPath)" "$(SolutionDir)Application\bin\Debug\net7.0\"
-xcopy /Y /F "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)Application\bin\Debug\net7.0\"</Command>
+      <Command>xcopy /Y /F "$(TargetPath)" "$(SolutionDir)Application\bin\Debug\net9.0\"
+xcopy /Y /F "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)Application\bin\Debug\net9.0\"</Command>
     </PostBuildEvent>
     <CustomBuildStep>
       <Command>xcopy /Y /F "$(TargetPath)" "$(SolutionDir)Application\bin\Debug\net7.0\"</Command>

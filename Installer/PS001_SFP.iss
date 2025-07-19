@@ -1,6 +1,6 @@
 #define MyDllName "PE32Proxy"
 #ifndef ApplicationVersion
-#define ApplicationVersion GetFileVersion("..\PE32Proxy\bin\Debug\net7.0\"+MyDllName)
+#define ApplicationVersion GetFileVersion("..\PE32Proxy\bin\Debug\net9.0\"+MyDllName)
 #endif
 
 [Setup]
@@ -28,6 +28,6 @@ LicenseFile=license.rtf
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]     
-Source: "..\PE32Proxy\bin\Debug\net7.0\*.*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
+Source: "..\PE32Proxy\bin\Debug\net9.0\*.*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "Infinitest Icon.ico"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 

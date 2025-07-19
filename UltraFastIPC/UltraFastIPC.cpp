@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <sstream> 
+using namespace std;
 
 // Shared memory layout - This is the "common language" between two processes
 struct SharedMemoryLayout {
@@ -37,6 +38,7 @@ private:
 	bool isRunning;
 	int parentPid;
 	std::string sharedMemoryName;
+	bool debugMode;
 
 	// High precision timer - Microsecond-level precision measurement
 	uint64_t GetMicroseconds() {
@@ -47,8 +49,8 @@ private:
 	}
 
 public:
-	UltraFastIPCServer(const std::string& name,int id)
-		: sharedMemoryName(name), parentPid(id), isRunning(false), hMapFile(nullptr), pSharedMemory(nullptr) {
+	UltraFastIPCServer(const std::string& name,int id,bool debugMode)
+		: sharedMemoryName(name), parentPid(id), isRunning(false), debugMode(false),hMapFile(nullptr), pSharedMemory(nullptr) {
 	}
 
 	bool Initialize() {
@@ -514,7 +516,7 @@ private:
 				int begbdno = std::stoi(tokens[1]);
 				int boardwidth = std::stoi(tokens[2]);
 				long begadd = std::stol(tokens[3]);
-				char* patternfileChar = new char[tokens[4].size()];
+				char* patternfileChar = new char[tokens[4].size() + 1];
 				strcpy(patternfileChar, tokens[4].c_str());
 				response = std::to_string(pe32_lmload(begbdno, boardwidth, begadd, patternfileChar));
 				delete[] patternfileChar;
@@ -524,7 +526,7 @@ private:
 				int boardwidth = std::stoi(tokens[2]);
 				long begadd = std::stol(tokens[3]);
 				long endadd = std::stol(tokens[4]);
-				char* patternfileChar = new char[tokens[4].size()];
+				char* patternfileChar = new char[tokens[4].size() + 1];
 				strcpy(patternfileChar, tokens[4].c_str());
 				response = std::to_string(pe32_lmsave(begbdno, boardwidth, begadd, endadd, patternfileChar));
 				delete[] patternfileChar;
@@ -800,12 +802,12 @@ private:
 			else if (tokens[0] == "pe32_con_ext") {
 				int bdn = std::stoi(tokens[1]);
 				int pno = std::stoi(tokens[2]);
-				int onoff = std::stod(tokens[3]);
+				int onoff = std::stoi(tokens[3]);
 				pe32_con_ext(bdn, pno, onoff);
 			}
 			else if (tokens[0] == "pe32_set_deskew") {
 				int bdn = std::stoi(tokens[1]);
-				int onoff = std::stod(tokens[2]);
+				int onoff = std::stoi(tokens[2]);
 				int rt = std::stoi(tokens[3]);
 				pe32_set_deskew(bdn, onoff, rt);
 			}
@@ -817,10 +819,16 @@ private:
 		catch (...) {
 			response = "error";
 		}
+		if (debugMode) {
+			cout << requestData << endl;
+		}
 		
 		// Directly write to shared memory, no extra allocation needed
 		memcpy(pSharedMemory->response_data, response.c_str(), response.size());
 		pSharedMemory->response_size = response.size();
+
+		// Clear request data after finishing response
+		memset(pSharedMemory->request_data, 0, requestSize);
 	}
 
 	void ProcessCommonAPI(std::vector<std::string>& tokens, std::string& response) {
@@ -1172,8 +1180,10 @@ private:
 			delete[] data;
 		}
 		else {
-			response = "Unknown command";
+			response = "Unknown command :"+ tokens[0];
+			cout << response << endl;
 		}
+
 	}
 
 public:
@@ -1193,14 +1203,28 @@ public:
 // Main function for a 32-bit process
 int main(int argc, char* argv[]) {
 
+	if (argc < 2)
+	{
+		std::cerr << "Please provide at least 2 arguments: process ID and debug mode (0 or 1)" << std::endl;
+		return 1;
+	}
+
 	auto id = (DWORD)std::stoi(argv[1]);
+	char ch = argv[2][0];
+	bool debugMode = (ch == '1');
+
+	if (debugMode) {
+		std::cout << "Debug mode is ON" << std::endl;
+	}
+	else {
+		std::cout << "Debug mode is OFF" << std::endl;
+	}
 
 	std::cout << "Parent process ID: " << id << std::endl;
 	std::cout << "Current Process ID: " << GetCurrentProcessId() << std::endl;
 	std::cout << "=== High performance 32-bit IPC server ===" << std::endl;
 
-	UltraFastIPCServer server("UltraFastIPC_SharedMem", id);
-
+	UltraFastIPCServer server("UltraFastIPC_SharedMem", id, debugMode);
 
 	if (!server.Initialize()) {
 		std::cerr << "Server initialization failed" << std::endl;

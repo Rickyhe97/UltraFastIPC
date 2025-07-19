@@ -23,7 +23,7 @@ if (input.Key == ConsoleKey.D1)
     for (int i = 0; i < testCount; i++)
     {
         stopwatch2.Restart();
-        var result = pe32.pe32_api();
+        var result = pe32.it_api();
         stopwatch2.Stop();
         times.Add((stopwatch2.ElapsedTicks * 1000000.0) / Stopwatch.Frequency);
         //Console.WriteLine(result.ToString("X"));
@@ -58,7 +58,7 @@ else if (input.Key == ConsoleKey.D2)
     while (GetRunTime(startTime) < TimeSpan.FromHours(time))
     {
         cycleStopwatch.Restart();
-        var result = pe32.pe32_api();
+        var result = pe32.it_api();
         cycleStopwatch.Stop();
         testCount++;
         Console.WriteLine(
